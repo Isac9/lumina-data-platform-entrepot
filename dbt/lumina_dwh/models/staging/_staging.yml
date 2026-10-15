@@ -1,0 +1,66 @@
+version: 2
+
+models:
+  - name: stg_crm__agents
+    description: "Agents commerciaux nettoyés."
+    columns:
+      - name: id_agent
+        tests: [unique, not_null]
+      - name: code_entite
+        tests:
+          - accepted_values:
+              values: ["CI", "SN", "BF"]
+
+  - name: stg_crm__clients
+    description: "Clients nettoyés (téléphone sans espaces, dates converties)."
+    columns:
+      - name: id_client
+        tests: [unique, not_null]
+      - name: id_agent
+        tests:
+          - relationships:
+              to: ref('stg_crm__agents')
+              field: id_agent
+
+  - name: stg_pf__produits
+    columns:
+      - name: code_produit
+        tests: [unique, not_null]
+
+  - name: stg_pf__prets
+    columns:
+      - name: id_pret
+        tests: [unique, not_null]
+      - name: id_client
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_crm__clients')
+              field: id_client
+
+  - name: stg_pf__echeances
+    columns:
+      - name: id_echeance
+        tests: [unique, not_null]
+
+  - name: stg_pf__remboursements
+    columns:
+      - name: id_remboursement
+        tests: [unique, not_null]
+      - name: montant
+        tests: [not_null]
+
+  - name: stg_erp__factures
+    columns:
+      - name: num_facture
+        tests: [unique, not_null]
+      - name: compte_groupe
+        description: "Compte du plan de comptes Groupe (null = compte local non référencé)."
+        tests: [not_null]
+
+  - name: stg_erp__encaissements
+    columns:
+      - name: num_piece
+        tests: [unique, not_null]
+      - name: compte_groupe
+        tests: [not_null]

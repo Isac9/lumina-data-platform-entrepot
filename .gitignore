@@ -1,0 +1,10 @@
+# Données générées (on peut les recréer avec le générateur)
+donnees/
+# Sauvegardes de la base
+sauvegardes/
+# Fichiers techniques de dbt et Python
+dbt/lumina_dwh/target/
+dbt/lumina_dwh/logs/
+dbt/lumina_dwh/.user.yml
+__pycache__/
+*.pyc

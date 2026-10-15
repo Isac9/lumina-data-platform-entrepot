@@ -1,0 +1,27 @@
+version: 2
+
+sources:
+  - name: raw
+    description: "Données brutes copiées par Airflow depuis le CRM, le portefeuille et l'ERP."
+    schema: raw
+    loaded_at_field: _charge_le
+    freshness:
+      warn_after: {count: 26, period: hour}
+      error_after: {count: 48, period: hour}
+    tables:
+      - name: crm_agents
+        description: "Agents commerciaux (API CRM)."
+      - name: crm_clients
+        description: "Clients (API CRM)."
+      - name: pf_produits
+        description: "Catalogue produits (gestion de portefeuille)."
+      - name: pf_prets
+        description: "Contrats de prêt (gestion de portefeuille)."
+      - name: pf_echeances
+        description: "Échéancier de chaque prêt (gestion de portefeuille)."
+      - name: pf_remboursements
+        description: "Paiements reçus des clients (gestion de portefeuille). Table partitionnée par mois."
+      - name: erp_factures
+        description: "Factures de vente (ERP, CSV par pays)."
+      - name: erp_encaissements
+        description: "Écritures d'encaissement (ERP, CSV par pays)."

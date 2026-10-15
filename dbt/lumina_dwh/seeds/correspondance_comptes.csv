@@ -1,0 +1,10 @@
+code_entite,code_compte_local,compte_groupe,libelle_compte_groupe
+CI,706100,VENTE_EQUIPEMENT,Ventes d'équipements à crédit
+CI,521100,TRESORERIE_BANQUE,Encaissements banque et espèces
+CI,585100,TRESORERIE_MOBILE_MONEY,Encaissements mobile money
+SN,7061,VENTE_EQUIPEMENT,Ventes d'équipements à crédit
+SN,5211,TRESORERIE_BANQUE,Encaissements banque et espèces
+SN,5851,TRESORERIE_MOBILE_MONEY,Encaissements mobile money
+BF,70610,VENTE_EQUIPEMENT,Ventes d'équipements à crédit
+BF,52110,TRESORERIE_BANQUE,Encaissements banque et espèces
+BF,58510,TRESORERIE_MOBILE_MONEY,Encaissements mobile money

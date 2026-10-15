@@ -1,0 +1,175 @@
+# =====================================================================
+#  Projet 1 - Entrepôt de données multi-entités "Lumina Énergie"
+#  Ce fichier décrit TOUTES les "boîtes" (conteneurs) du projet.
+#  Une seule commande les démarre toutes :  docker compose up -d --build
+# =====================================================================
+
+services:
+
+  # ---------------------------------------------------------------
+  # 1) Base "SOURCE" : le logiciel de gestion de portefeuille de prêts
+  #    (c'est le système opérationnel, PAS l'entrepôt)
+  # ---------------------------------------------------------------
+  sources-db:
+    image: postgres:16
+    container_name: lumina-sources-db
+    environment:
+      POSTGRES_DB: portefeuille
+      POSTGRES_USER: portefeuille_app
+      POSTGRES_PASSWORD: portefeuille
+    ports:
+      - "5433:5432"
+    volumes:
+      - sources_donnees:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U portefeuille_app -d portefeuille"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # ---------------------------------------------------------------
+  # 2) L'ENTREPÔT de données (Data Warehouse) PostgreSQL
+  # ---------------------------------------------------------------
+  dwh-db:
+    image: postgres:16
+    container_name: lumina-dwh-db
+    environment:
+      POSTGRES_DB: dwh
+      POSTGRES_USER: lumina
+      POSTGRES_PASSWORD: lumina
+    ports:
+      - "5434:5432"
+    volumes:
+      - dwh_donnees:/var/lib/postgresql/data
+      - ./dwh-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lumina -d dwh"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # ---------------------------------------------------------------
+  # 3) Générateur de données fictives (s'exécute une fois puis s'arrête)
+  #    - remplit la base source "portefeuille"
+  #    - écrit les fichiers CRM (JSON) et ERP (CSV) dans ./donnees
+  # ---------------------------------------------------------------
+  generateur:
+    build: ./generateur
+    container_name: lumina-generateur
+    environment:
+      DOSSIER_DONNEES: /donnees
+      SOURCES_HOTE: sources-db
+    volumes:
+      - ./donnees:/donnees
+    depends_on:
+      sources-db:
+        condition: service_healthy
+    restart: "no"
+
+  # ---------------------------------------------------------------
+  # 4) API du CRM (simulée avec FastAPI)
+  #    Documentation interactive : http://localhost:8000/docs
+  # ---------------------------------------------------------------
+  api-crm:
+    build: ./api-crm
+    container_name: lumina-api-crm
+    environment:
+      DOSSIER_CRM: /donnees/crm
+    volumes:
+      - ./donnees:/donnees:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      generateur:
+        condition: service_completed_successfully
+
+  # ---------------------------------------------------------------
+  # 5) Airflow : le "chef d'orchestre" qui lance les pipelines
+  #    Interface : http://localhost:8080  (admin / admin)
+  # ---------------------------------------------------------------
+  airflow:
+    build: ./airflow
+    container_name: lumina-airflow
+    environment:
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+      AIRFLOW__WEBSERVER__WORKERS: "2"
+      AIRFLOW__WEBSERVER__SECRET_KEY: "cle-secrete-de-demo-lumina"
+      AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: "30"
+      # Connexions utilisées par le pipeline
+      AIRFLOW_CONN_DWH: "postgres://lumina:lumina@dwh-db:5432/dwh"
+      AIRFLOW_CONN_SOURCES_PORTEFEUILLE: "postgres://portefeuille_app:portefeuille@sources-db:5432/portefeuille"
+      API_CRM_URL: "http://api-crm:8000"
+      DOSSIER_ERP: /opt/donnees/erp
+      # Réglages dbt
+      DBT_PROFILES_DIR: /opt/dbt/lumina_dwh
+      DBT_TARGET_PATH: /tmp/dbt_target
+      DBT_LOG_PATH: /tmp/dbt_logs
+      DWH_HOTE: dwh-db
+      DWH_PORT: "5432"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./dbt:/opt/dbt
+      - ./donnees:/opt/donnees:ro
+    ports:
+      - "8080:8080"
+    command: >
+      bash -c "airflow db migrate &&
+      (airflow users create --username admin --password admin --firstname Admin --lastname Lumina --role Admin --email admin@exemple.com || true) &&
+      (airflow scheduler &) &&
+      exec airflow webserver"
+    depends_on:
+      dwh-db:
+        condition: service_healthy
+      sources-db:
+        condition: service_healthy
+      api-crm:
+        condition: service_started
+
+  # ---------------------------------------------------------------
+  # 6) pgAdmin : pour REGARDER les tables avec la souris
+  #    Interface : http://localhost:5050
+  # ---------------------------------------------------------------
+  pgadmin:
+    image: dpage/pgadmin4:8.14
+    container_name: lumina-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@exemple.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    volumes:
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
+    ports:
+      - "5050:80"
+    depends_on:
+      - dwh-db
+
+  # ---------------------------------------------------------------
+  # 7) Sauvegarde automatique de l'entrepôt (1 fois par jour)
+  #    Les fichiers .dump arrivent dans le dossier ./sauvegardes
+  # ---------------------------------------------------------------
+  sauvegarde:
+    image: postgres:16
+    container_name: lumina-sauvegarde
+    environment:
+      PGPASSWORD: lumina
+    volumes:
+      - ./sauvegardes:/sauvegardes
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          fichier=/sauvegardes/dwh_$$(date +%Y%m%d_%H%M).dump
+          pg_dump -h dwh-db -U lumina -d dwh -Fc -f $$fichier && echo "Sauvegarde OK : $$fichier"
+          find /sauvegardes -name "*.dump" -mtime +7 -delete
+          sleep 86400
+        done
+    depends_on:
+      dwh-db:
+        condition: service_healthy
+
+volumes:
+  sources_donnees:
+  dwh_donnees:

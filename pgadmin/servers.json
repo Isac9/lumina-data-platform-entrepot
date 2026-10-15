@@ -1,0 +1,22 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Entrepôt DWH (lumina)",
+      "Group": "Lumina Énergie",
+      "Host": "dwh-db",
+      "Port": 5432,
+      "MaintenanceDB": "dwh",
+      "Username": "lumina",
+      "SSLMode": "prefer"
+    },
+    "2": {
+      "Name": "Source Portefeuille",
+      "Group": "Lumina Énergie",
+      "Host": "sources-db",
+      "Port": 5432,
+      "MaintenanceDB": "portefeuille",
+      "Username": "portefeuille_app",
+      "SSLMode": "prefer"
+    }
+  }
+}

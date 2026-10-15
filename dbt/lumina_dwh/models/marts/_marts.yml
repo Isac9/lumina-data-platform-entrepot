@@ -1,0 +1,86 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: "Calendrier (une ligne par jour)."
+    columns:
+      - name: date_jour
+        tests: [unique, not_null]
+
+  - name: dim_entite
+    description: "Les filiales du Groupe (une ligne par pays)."
+    columns:
+      - name: code_entite
+        tests: [unique, not_null]
+
+  - name: dim_produit
+    description: "Catalogue des produits vendus à crédit."
+    columns:
+      - name: code_produit
+        tests: [unique, not_null]
+
+  - name: dim_agent
+    description: "Agents commerciaux. Filtré par entité (RLS)."
+    columns:
+      - name: id_agent
+        tests: [unique, not_null]
+
+  - name: dim_client
+    description: "Clients. Filtré par entité (RLS)."
+    columns:
+      - name: id_client
+        tests: [unique, not_null]
+      - name: code_entite
+        tests:
+          - relationships:
+              to: ref('dim_entite')
+              field: code_entite
+
+  - name: fact_prets
+    description: "Un prêt par ligne, avec sa situation (encours, impayé) à la date d'arrêté."
+    columns:
+      - name: id_pret
+        tests: [unique, not_null]
+      - name: id_client
+        tests:
+          - relationships:
+              to: ref('dim_client')
+              field: id_client
+      - name: code_produit
+        tests:
+          - relationships:
+              to: ref('dim_produit')
+              field: code_produit
+      - name: encours
+        description: "Reste à payer = total dû - total remboursé (jamais négatif)."
+      - name: statut_pret
+        tests:
+          - accepted_values:
+              values: ["SOLDE", "A_JOUR", "EN_RETARD"]
+
+  - name: fact_echeances
+    description: "Une échéance (mensualité prévue) par ligne."
+    columns:
+      - name: id_echeance
+        tests: [unique, not_null]
+      - name: id_pret
+        tests:
+          - relationships:
+              to: ref('fact_prets')
+              field: id_pret
+
+  - name: fact_remboursements
+    description: "Un paiement reçu par ligne, avec le résultat du rapprochement avec l'ERP."
+    columns:
+      - name: id_remboursement
+        tests: [unique, not_null]
+      - name: statut_rapprochement
+        tests:
+          - accepted_values:
+              values: ["RAPPROCHE", "ABSENT_ERP", "ECART_MONTANT"]
+
+  - name: fact_ventes
+    description: "Factures ERP ramenées au plan de comptes Groupe (consolidation)."
+    columns:
+      - name: num_facture
+        tests: [unique, not_null]

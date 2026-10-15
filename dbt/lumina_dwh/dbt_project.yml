@@ -1,0 +1,32 @@
+name: lumina_dwh
+version: "1.0.0"
+profile: lumina_dwh
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+
+models:
+  lumina_dwh:
+    # Couche 1 : nettoyage des données brutes (vues, rien n'est stocké)
+    staging:
+      +schema: staging
+      +materialized: view
+    # Couche 2 : calculs intermédiaires réutilisables
+    intermediate:
+      +schema: intermediate
+      +materialized: view
+    # Couche 3 : tables finales (modèle en étoile) pour les tableaux de bord
+    marts:
+      +schema: marts
+      +materialized: table
+      +grants:
+        select: ["direction_groupe", "lecteur_ci", "lecteur_sn", "lecteur_bf"]
+
+seeds:
+  lumina_dwh:
+    +schema: referentiel
+    correspondance_comptes:
+      +column_types:
+        code_compte_local: text
