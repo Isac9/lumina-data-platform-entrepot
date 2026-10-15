@@ -98,3 +98,17 @@ erDiagram
 
 - [Architecture et choix techniques](docs/architecture.md)
 - [Feuille de route](docs/feuille_de_route.md)
+
+## Captures d'écran
+
+**Le pipeline quotidien dans Airflow** : 3 extractions en parallèle, puis dbt (seed, run, test), et le signal « marts prêts » qui déclenche le reporting.
+
+![Pipeline Airflow](docs/images/airflow.png)
+
+**Les contrôles qualité dbt** : 50 contrôles, dont un avertissement voulu (72 écarts ERP ↔ portefeuille détectés).
+
+![Tests qualité dbt](docs/images/dbt_tests.png)
+
+**Le lignage des données** (catalogue dbt) : des sources brutes jusqu'au modèle en étoile.
+
+![Lignage](docs/images/lignage.png)
